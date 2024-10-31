@@ -907,13 +907,7 @@ impl RustApp {
             .join(wasm_name)
             .to_string_lossy()
             .to_string();
-
-        let mut args = Vec::with_capacity(4 + arg_opt_params.len());
-        args.extend([
-            arg_output.as_str(),
-            arg_opt_level.as_str(),
-            target_wasm.as_str(),
-        ]);
+        let mut args: Vec<&str> = vec![&arg_output, &arg_opt_level, &target_wasm];
 
         if self.reference_types {
             args.push("--enable-reference-types");
