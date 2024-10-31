@@ -79,7 +79,7 @@ pub struct RustApp {
     /// `2`, `3`, `4`, `s or `z`. Using `0` disables wasm-opt completely.
     wasm_opt: WasmOptLevel,
     /// An optional optimization command line params to wasm-opt if it is enabled.
-    wasm_opt_params: Option<String>,
+    wasm_opt_params: Vec<String>,
     /// The value of the `--target` flag for wasm-bindgen.
     wasm_bindgen_target: WasmBindgenTarget,
     /// Name for the module. Is binary name if given, otherwise it is the name of the cargo
@@ -171,7 +171,12 @@ impl RustApp {
                     WasmOptLevel::Off
                 }
             });
-        let wasm_opt_params = attrs.get("data-wasm-opt-params").cloned();
+        let wasm_opt_params = attrs
+            .get("data-wasm-opt-params")
+            .iter()
+            .flat_map(|val| val.split_whitespace())
+            .map(|val| val.to_string())
+            .collect();
         let wasm_bindgen_target = attrs
             .get("data-bindgen-target")
             .map(|s| s.parse())
@@ -335,7 +340,7 @@ impl RustApp {
             reference_types: false,
             weak_refs: false,
             wasm_opt: WasmOptLevel::Off,
-            wasm_opt_params: None,
+            wasm_opt_params: Default::default(),
             app_type: RustAppType::Main,
             wasm_bindgen_target: WasmBindgenTarget::Web,
             name,
@@ -895,22 +900,26 @@ impl RustApp {
         let output = output.join(format!("{}_bg.wasm", self.name));
         let arg_output = format!("--output={output}");
         let arg_opt_level = format!("-O{}", self.wasm_opt.as_ref());
-        let arg_opt_params = self.wasm_opt_params.as_ref();
+        let arg_opt_params = self.wasm_opt_params.as_slice();
         let target_wasm = self
             .cfg
             .staging_dist
             .join(wasm_name)
             .to_string_lossy()
             .to_string();
-        let mut args: Vec<&str> = vec![&arg_output, &arg_opt_level, &target_wasm];
+
+        let mut args = Vec::with_capacity(4 + arg_opt_params.len());
+        args.extend([
+            arg_output.as_str(),
+            arg_opt_level.as_str(),
+            target_wasm.as_str(),
+        ]);
 
         if self.reference_types {
             args.push("--enable-reference-types");
         }
 
-        if let Some(arg_opt_params) = arg_opt_params {
-            args.extend(arg_opt_params.split_whitespace());
-        }
+        args.extend(arg_opt_params.iter().map(|s| s.as_str()));
 
         // Invoke wasm-opt.
         tracing::debug!("calling wasm-opt");
